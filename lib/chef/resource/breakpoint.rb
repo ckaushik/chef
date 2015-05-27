@@ -26,6 +26,8 @@ class Chef
 
       default_action :break
 
+      default_action :break
+
       def initialize(action="break", *args)
         super(caller.first, *args)
       end

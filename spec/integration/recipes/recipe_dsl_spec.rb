@@ -7,13 +7,8 @@ describe "Recipe DSL methods" do
     before(:context) {
 
       class BaseThingy < Chef::Resource
-        def initialize(*args, &block)
-          super
-          @allowed_actions = [ :create ]
-          @action = :create
-        end
-
         resource_name 'base_thingy'
+        default_action :create
 
         class<<self
           attr_accessor :created_resource
@@ -53,11 +48,8 @@ describe "Recipe DSL methods" do
         before(:context) {
 
           class Chef::Resource::BackcompatThingy < Chef::Resource
-            def initialize(*args, &block)
-              super
-              @allowed_actions = [ :create ]
-              @action = :create
-            end
+            resource_name 'backcompat_thingy'
+            default_action :create
           end
           class Chef::Provider::BackcompatThingy < Chef::Provider
             def load_current_resource
