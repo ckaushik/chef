@@ -28,8 +28,6 @@ class Chef
 
       allowed_actions :request_reboot, :reboot_now, :cancel
 
-      allowed_actions :request_reboot, :reboot_now, :cancel
-
       def initialize(name, run_context=nil)
         super
         @provider = Chef::Provider::Reboot

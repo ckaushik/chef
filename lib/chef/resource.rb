@@ -685,13 +685,19 @@ class Chef
     #
     # The provider class for this resource.
     #
+    # If `action :x do ... end` has been declared on this resource or its
+    # superclasses, this will return the `action_provider_class`.
+    #
     # If this is not set, `provider_for_action` will dynamically determine the
     # provider.
     #
     # @param arg [String, Symbol, Class] Sets the provider class for this resource.
     #   If passed a String or Symbol, e.g. `:file` or `"file"`, looks up the
     #   provider based on the name.
+    #
     # @return The provider class for this resource.
+    #
+    # @see Chef::Resource.action_provider_class
     #
     def provider(arg=nil)
       klass = if arg.kind_of?(String) || arg.kind_of?(Symbol)
@@ -875,209 +881,221 @@ class Chef
       nil
     end
 
-    # Provider lookup and naming
-    class<<self
-      #
-      # The DSL name of this resource (e.g. `package` or `yum_package`)
-      #
-      # @return [String] The DSL name of this resource.
-      #
-      # @deprecated Use resource_name instead.
-      #
-      def dsl_name
-        Chef::Log.deprecation "Resource.dsl_name is deprecated and will be removed in Chef 13.  Use resource_name instead."
-        if name
-          name = self.name.split('::')[-1]
-          convert_to_snake_case(name)
+    #
+    # The DSL name of this resource (e.g. `package` or `yum_package`)
+    #
+    # @return [String] The DSL name of this resource.
+    #
+    # @deprecated Use resource_name instead.
+    #
+    def self.dsl_name
+      Chef::Log.deprecation "Resource.dsl_name is deprecated and will be removed in Chef 13.  Use resource_name instead."
+      if name
+        name = self.name.split('::')[-1]
+        convert_to_snake_case(name)
+      end
+    end
+
+    #
+    # The display name of this resource type, for printing purposes.
+    #
+    # This also automatically calls "provides" to provide DSL with the given
+    # name.
+    #
+    # @param value [Symbol] The desired name of this resource type (e.g.
+    #   `execute`).
+    #
+    # @return [Symbol] The name of this resource type (e.g. `:execute`).
+    #
+    def self.resource_name(value=NULL_ARG)
+      if value != NULL_ARG
+        @resource_name = value.to_sym
+        provides self.resource_name
+      end
+      # Backcompat: set resource name for classes in Chef::Resource automatically
+      if !@resource_name && self.name
+        chef, resource, class_name, *extra = self.name.split('::')
+        if chef == 'Chef' && resource == 'Resource' && extra.size == 0
+          @resource_name = convert_to_snake_case(self.name.split('::')[-1])
         end
       end
+      @resource_name
+    end
+    def self.resource_name=(value)
+      resource_name(value)
+    end
 
-      #
-      # The display name of this resource type, for printing purposes.
-      #
-      # This also automatically calls "provides" to provide DSL with the given
-      # name.
-      #
-      # @param value [Symbol] The desired name of this resource type (e.g.
-      #   `execute`).
-      #
-      # @return [Symbol] The name of this resource type (e.g. `:execute`).
-      #
-      def resource_name(value=NULL_ARG)
-        if value != NULL_ARG
-          @resource_name = value.to_sym
-          provides self.resource_name
-        end
-        # Backcompat: set resource name for classes in Chef::Resource automatically
-        if !@resource_name && self.name
-          chef, resource, class_name, *extra = self.name.split('::')
-          if chef == 'Chef' && resource == 'Resource' && extra.size == 0
-            @resource_name = convert_to_snake_case(self.name.split('::')[-1])
-          end
-        end
-        @resource_name
+    #
+    # Use the class name as the resource name.
+    #
+    # Munges the last part of the class name from camel case to snake case,
+    # and sets the resource_name to that:
+    #
+    # A::B::BlahDBlah -> blah_d_blah
+    #
+    def self.use_automatic_resource_name
+      automatic_name = convert_to_snake_case(self.name.split('::')[-1])
+      resource_name automatic_name
+    end
+
+    #
+    # The module where Chef should look for providers for this resource.
+    # The provider for `MyResource` will be looked up using
+    # `provider_base::MyResource`.  Defaults to `Chef::Provider`.
+    #
+    # @param arg [Module] The module containing providers for this resource
+    # @return [Module] The module containing providers for this resource
+    #
+    # @example
+    #   class MyResource < Chef::Resource
+    #     provider_base Chef::Provider::Deploy
+    #     # ...other stuff
+    #   end
+    #
+    # @deprecated Use `provides` on the provider, or `provider` on the resource, instead.
+    #
+    def self.provider_base(arg=nil)
+      if arg
+        Chef::Log.deprecation("Resource.provider_base is deprecated and will be removed in Chef 13. Use provides on the provider, or provider on the resource, instead.")
       end
-      alias :resource_name= :resource_name
+      @provider_base ||= arg || Chef::Provider
+    end
 
-      #
-      # Use the class name as the resource name.
-      #
-      # Munges the last part of the class name from camel case to snake case,
-      # and sets the resource_name to that:
-      #
-      # A::B::BlahDBlah -> blah_d_blah
-      #
-      def use_automatic_resource_name
-        automatic_name = convert_to_snake_case(self.name.split('::')[-1])
-        resource_name automatic_name
-      end
-
-      #
-      # The module where Chef should look for providers for this resource.
-      # The provider for `MyResource` will be looked up using
-      # `provider_base::MyResource`.  Defaults to `Chef::Provider`.
-      #
-      # @param arg [Module] The module containing providers for this resource
-      # @return [Module] The module containing providers for this resource
-      #
-      # @example
-      #   class MyResource < Chef::Resource
-      #     provider_base Chef::Provider::Deploy
-      #     # ...other stuff
-      #   end
-      #
-      # @deprecated Use `provides` on the provider, or `provider` on the resource, instead.
-      #
-      def provider_base(arg=nil)
-        if arg
-          Chef::Log.deprecation("Resource.provider_base is deprecated and will be removed in Chef 13. Use provides on the provider, or provider on the resource, instead.")
-        end
-        @provider_base ||= arg || Chef::Provider
-      end
-
-      #
-      # The list of allowed actions for the resource.
-      #
-      # @param actions [Array<Symbol>] The list of actions to add to allowed_actions.
-      #
-      # @return [Arrau<Symbol>] The list of actions, as symbols.
-      #
-      def allowed_actions(*actions)
-        @allowed_actions ||=
-          if superclass.respond_to?(:allowed_actions)
-            superclass.allowed_actions.dup
-          else
-            [ :nothing ]
-          end
-        @allowed_actions |= actions
-      end
-      def allowed_actions=(value)
-        @allowed_actions = value
-      end
-
-      #
-      # The action that will be run if no other action is specified.
-      #
-      # Setting default_action will automatially add the action to
-      # allowed_actions, if it isn't already there.
-      #
-      # Defaults to :nothing.
-      #
-      # @param action_name [Symbol,Array<Symbol>] The default action (or series
-      #   of actions) to use.
-      #
-      # @return [Symbol,Array<Symbol>] The default actions for the resource.
-      #
-      def default_action(action_name=NULL_ARG)
-        unless action_name.equal?(NULL_ARG)
-          if action_name.is_a?(Array)
-            @default_action = action_name.map { |arg| arg.to_sym }
-          else
-            @default_action = action_name.to_sym
-          end
-
-          self.allowed_actions |= Array(@default_action)
-        end
-
-        if @default_action
-          @default_action
-        elsif superclass.respond_to?(:default_action)
-          superclass.default_action
+    #
+    # The list of allowed actions for the resource.
+    #
+    # @param actions [Array<Symbol>] The list of actions to add to allowed_actions.
+    #
+    # @return [Array<Symbol>] The list of actions, as symbols.
+    #
+    def self.allowed_actions(*actions)
+      @allowed_actions ||=
+        if superclass.respond_to?(:allowed_actions)
+          superclass.allowed_actions.dup
         else
-          :nothing
+          [ :nothing ]
         end
-      end
-      def default_action=(action_name)
-        default_action action_name
-      end
+      @allowed_actions |= actions
+    end
+    def self.allowed_actions=(value)
+      @allowed_actions = value
+    end
 
-      #
-      # Define an action on this resource.
-      #
-      # The action is defined as a *recipe* block that will be compiled and then
-      # converged when the action is taken (when Resource is converged).  The recipe
-      # has access to the resource's attributes and methods, as well as the Chef
-      # recipe DSL.
-      #
-      # Resources in the action recipe may notify and subscribe to other resources
-      # within the action recipe, but cannot notify or subscribe to resources
-      # in the main Chef run.
-      #
-      # Resource actions are *inheritable*: if resource A defines `action :create`
-      # and B is a subclass of A, B gets all of A's actions.  Additionally,
-      # resource B can define `action :create` and call `super()` to invoke A's
-      # action code.
-      #
-      # @param name [Symbol] The action name to define.
-      # @param recipe_block The recipe to run when the action is taken. This block
-      #   takes no parameters, and will be evaluated in a new context containing:
-      #
-      #   - The resource's public and protected methods (including attributes)
-      #   - The Chef Recipe DSL (file, etc.)
-      #   - super() referring to the parent version of the action (if any)
-      #
-      # @return The Action class implementing the action
-      #
-      def action(action, &recipe_block)
-        action = action.to_sym
-        create_action_provider_class.action(action, &recipe_block)
-        self.allowed_actions += [ action ]
-        default_action action if default_action == :nothing
-      end
-
-      #
-      # The created action provider class for this resource, or nil if it has
-      # not been / does not need to be created.
-      #
-      # @api private
-      def action_provider_class
-        @action_provider_class ||
-          # If the superclass needed one, then we need one as well.
-          if superclass.respond_to?(:action_provider_class) && superclass.action_provider_class
-            create_action_provider_class
-          end
-      end
-
-      #
-      # Create the action provider class
-      #
-      # @api private
-      def create_action_provider_class
-        return @action_provider_class if @action_provider_class
-
-        if superclass.respond_to?(:action_provider_class)
-          base_provider = superclass.action_provider_class
+    #
+    # The action that will be run if no other action is specified.
+    #
+    # Setting default_action will automatially add the action to
+    # allowed_actions, if it isn't already there.
+    #
+    # Defaults to :nothing.
+    #
+    # @param action_name [Symbol,Array<Symbol>] The default action (or series
+    #   of actions) to use.
+    #
+    # @return [Symbol,Array<Symbol>] The default actions for the resource.
+    #
+    def self.default_action(action_name=NULL_ARG)
+      unless action_name.equal?(NULL_ARG)
+        if action_name.is_a?(Array)
+          @default_action = action_name.map { |arg| arg.to_sym }
+        else
+          @default_action = action_name.to_sym
         end
-        base_provider ||= Chef::Provider
 
-        resource_class = self
-        @action_provider_class = Class.new(base_provider) do
-          use_inline_resources
-          include_resource_dsl true
-          define_singleton_method(:to_s) { "#{resource_class} action provider" }
-          define_singleton_method(:inspect) { to_s }
-          define_method(:load_current_resource) {}
+        self.allowed_actions |= Array(@default_action)
+      end
+
+      if @default_action
+        @default_action
+      elsif superclass.respond_to?(:default_action)
+        superclass.default_action
+      else
+        :nothing
+      end
+    end
+    def self.default_action=(action_name)
+      default_action action_name
+    end
+
+    #
+    # Define an action on this resource.
+    #
+    # The action is defined as a *recipe* block that will be compiled and then
+    # converged when the action is taken (when Resource is converged).  The recipe
+    # has access to the resource's attributes and methods, as well as the Chef
+    # recipe DSL.
+    #
+    # Resources in the action recipe may notify and subscribe to other resources
+    # within the action recipe, but cannot notify or subscribe to resources
+    # in the main Chef run.
+    #
+    # Resource actions are *inheritable*: if resource A defines `action :create`
+    # and B is a subclass of A, B gets all of A's actions.  Additionally,
+    # resource B can define `action :create` and call `super()` to invoke A's
+    # action code.
+    #
+    # The first action defined (besides `:nothing`) will become the default
+    # action for the resource.
+    #
+    # @param name [Symbol] The action name to define.
+    # @param recipe_block The recipe to run when the action is taken. This block
+    #   takes no parameters, and will be evaluated in a new context containing:
+    #
+    #   - The resource's public and protected methods (including attributes)
+    #   - The Chef Recipe DSL (file, etc.)
+    #   - super() referring to the parent version of the action (if any)
+    #
+    # @return The Action class implementing the action
+    #
+    def self.action(action, &recipe_block)
+      action = action.to_sym
+      create_action_provider_class.action(action, &recipe_block)
+      self.allowed_actions += [ action ]
+      default_action action if default_action == :nothing
+    end
+
+    #
+    # The action provider class is an automatic `Provider` created to handle
+    # actions declared by `action :x do ... end`.
+    #
+    # This class will be returned by `resource.provider` if `resource.provider`
+    # is not set. `provider_for_action` will also use this instead of calling
+    # out to `Chef::ProviderResolver`.
+    #
+    # If the user has not declared actions on this class or its superclasses
+    # using `action :x do ... end`, then there is no need for this class and
+    # `action_provider_class` will be `nil`.
+    #
+    # @api private
+    #
+    def self.action_provider_class
+      @action_provider_class ||
+        # If the superclass needed one, then we need one as well.
+        if superclass.respond_to?(:action_provider_class) && superclass.action_provider_class
+          create_action_provider_class
         end
+    end
+
+    #
+    # Ensure the action provider class actually gets created. This is called
+    # when the user does `action :x do ... end`.
+    #
+    # @api private
+    def self.create_action_provider_class
+      return @action_provider_class if @action_provider_class
+
+      if superclass.respond_to?(:action_provider_class)
+        base_provider = superclass.action_provider_class
+      end
+      base_provider ||= Chef::Provider
+
+      resource_class = self
+      @action_provider_class = Class.new(base_provider) do
+        use_inline_resources
+        include_resource_dsl true
+        define_singleton_method(:to_s) { "#{resource_class} action provider" }
+        define_singleton_method(:inspect) { to_s }
+        define_method(:load_current_resource) {}
       end
     end
 
