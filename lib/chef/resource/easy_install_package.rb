@@ -24,29 +24,9 @@ class Chef
 
       use_automatic_resource_name
 
-      def easy_install_binary(arg=nil)
-        set_or_return(
-          :easy_install_binary,
-          arg,
-          :kind_of => [ String ]
-        )
-      end
-
-      def python_binary(arg=nil)
-        set_or_return(
-          :python_install_binary,
-          arg,
-          :kind_of => [ String ]
-        )
-      end
-
-      def module_name(arg=nil)
-        set_or_return(
-          :module_name,
-          arg,
-          :kind_of => [ String ]
-        )
-      end
+      property :easy_install_binary, String
+      property :python_binary, String
+      property :module_name, String
 
     end
   end

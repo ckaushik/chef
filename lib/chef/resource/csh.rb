@@ -23,12 +23,6 @@ class Chef
   class Resource
     class Csh < Chef::Resource::Script
       use_automatic_resource_name
-
-      def initialize(name, run_context=nil)
-        super
-        @interpreter = "csh"
-      end
-
     end
   end
 end

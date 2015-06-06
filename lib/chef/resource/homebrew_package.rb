@@ -28,19 +28,7 @@ class Chef
       use_automatic_resource_name
       provides :package, os: "darwin"
 
-      def initialize(name, run_context=nil)
-        super
-        @homebrew_user = nil
-      end
-
-      def homebrew_user(arg=nil)
-        set_or_return(
-            :homebrew_user,
-            arg,
-            :kind_of => [ String, Integer ]
-        )
-      end
-
+      property :homebrew_user, [ String, Integer ]
     end
   end
 end

@@ -22,23 +22,10 @@ require 'chef/provider/package/apt'
 class Chef
   class Resource
     class AptPackage < Chef::Resource::Package
-
       use_automatic_resource_name
       provides :package, os: "linux", platform_family: [ "debian" ]
 
-      def initialize(name, run_context=nil)
-        super
-        @default_release = nil
-      end
-
-      def default_release(arg=nil)
-        set_or_return(
-          :default_release,
-          arg,
-          :kind_of => [ String ]
-        )
-      end
-
+      property :default_release, String
     end
   end
 end

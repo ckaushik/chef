@@ -22,12 +22,6 @@ class Chef
   class Resource
     class PortagePackage < Chef::Resource::Package
       use_automatic_resource_name
-
-      def initialize(name, run_context=nil)
-        super
-        @provider = Chef::Provider::Package::Portage
-      end
-
     end
   end
 end

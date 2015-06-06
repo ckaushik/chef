@@ -22,33 +22,11 @@ class Chef
     class Ohai < Chef::Resource
       use_automatic_resource_name
 
-      identity_attr :name
-
-      state_attrs :plugin
-
       default_action :reload
 
-      def initialize(name, run_context=nil)
-        super
-        @name = name
-        @plugin = nil
-      end
-
-      def plugin(arg=nil)
-        set_or_return(
-          :plugin,
-          arg,
-          :kind_of => [ String ]
-        )
-      end
-
-      def name(arg=nil)
-        set_or_return(
-          :name,
-          arg,
-          :kind_of => [ String ]
-        )
-      end
+      identity_attr :name
+      state_attrs :plugin
+      property :plugin, String
     end
   end
 end
