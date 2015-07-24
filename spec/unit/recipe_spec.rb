@@ -121,6 +121,7 @@ describe Chef::Recipe do
 
         it "locate resource for particular platform" do
           ShaunTheSheep = Class.new(Chef::Resource)
+          ShaunTheSheep.resource_name :shaun_the_sheep
           ShaunTheSheep.provides :laughter, :platform => ["television"]
           node.automatic[:platform] = "television"
           node.automatic[:platform_version] = "123"
@@ -131,6 +132,7 @@ describe Chef::Recipe do
 
         it "locate a resource for all platforms" do
           YourMom = Class.new(Chef::Resource)
+          YourMom.resource_name :your_mom
           YourMom.provides :love_and_caring
           res = recipe.love_and_caring "mommy"
           expect(res.name).to eql("mommy")
@@ -141,7 +143,9 @@ describe Chef::Recipe do
           before do
             node.automatic[:platform] = "nbc_sports"
             Sounders = Class.new(Chef::Resource)
+            Sounders.resource_name :sounders
             TottenhamHotspur = Class.new(Chef::Resource)
+            TottenhamHotspur.resource_name :tottenham_hotspur
           end
 
           after do
@@ -149,24 +153,20 @@ describe Chef::Recipe do
             Object.send(:remove_const, :TottenhamHotspur)
           end
 
-          it "selects one if it is the last declared" do
-            expect(Chef::Log).not_to receive(:warn)
-
+          it "selects the first one alphabetically" do
             Sounders.provides :football, platform: "nbc_sports"
             TottenhamHotspur.provides :football, platform: "nbc_sports"
 
             res1 = recipe.football "club world cup"
             expect(res1.name).to eql("club world cup")
-            expect(res1).to be_a_kind_of(TottenhamHotspur)
+            expect(res1).to be_a_kind_of(Sounders)
           end
 
-          it "selects the other one if it is given priority" do
-            expect(Chef::Log).not_to receive(:warn)
+          it "selects the first one alphabetically even if the declaration order is reversed" do
+            TottenhamHotspur.provides :football2, platform: "nbc_sports"
+            Sounders.provides :football2, platform: "nbc_sports"
 
-            TottenhamHotspur.provides :football, platform: "nbc_sports"
-            Sounders.provides :football, platform: "nbc_sports"
-
-            res1 = recipe.football "club world cup"
+            res1 = recipe.football2 "club world cup"
             expect(res1.name).to eql("club world cup")
             expect(res1).to be_a_kind_of(Sounders)
           end
@@ -405,8 +405,8 @@ describe Chef::Recipe do
       end
 
       it "does not copy the action from the first resource" do
-        expect(original_resource.action).to eq(:score)
-        expect(duplicated_resource.action).to eq(:nothing)
+        expect(original_resource.action).to eq([:score])
+        expect(duplicated_resource.action).to eq([:nothing])
       end
 
       it "does not copy the source location of the first resource" do
@@ -501,7 +501,7 @@ describe Chef::Recipe do
       recipe.from_file(File.join(CHEF_SPEC_DATA, "recipes", "test.rb"))
       res = recipe.resources(:file => "/etc/nsswitch.conf")
       expect(res.name).to eql("/etc/nsswitch.conf")
-      expect(res.action).to eql(:create)
+      expect(res.action).to eql([:create])
       expect(res.owner).to eql("root")
       expect(res.group).to eql("root")
       expect(res.mode).to eql(0644)

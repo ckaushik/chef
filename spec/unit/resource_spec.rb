@@ -59,8 +59,8 @@ describe Chef::Resource do
   end
 
   describe "when declaring the identity attribute" do
-    it "has no identity attribute by default" do
-      expect(Chef::Resource.identity_attr).to be_nil
+    it "has :name as identity attribute by default" do
+      expect(Chef::Resource.identity_attr).to eq(:name)
     end
 
     it "sets an identity attribute" do
@@ -344,6 +344,7 @@ describe Chef::Resource do
         expect(r.resource_name).to be_nil
         expect(r.declared_type).to eq :d
       end
+
       it "and there are no provides lines, @resource_name is used" do
         c = Class.new(Chef::Resource) do
           def initialize(*args, &block)
@@ -356,6 +357,20 @@ describe Chef::Resource do
         r.declared_type = :d
         expect(c.resource_name).to be_nil
         expect(r.resource_name).to eq :blah
+        expect(r.declared_type).to eq :d
+      end
+
+      it "and the resource class gets a late-bound name, resource_name is nil" do
+        c = Class.new(Chef::Resource) do
+          def self.name
+            "ResourceSpecNameTest"
+          end
+        end
+
+        r = c.new('hi')
+        r.declared_type = :d
+        expect(c.resource_name).to be_nil
+        expect(r.resource_name).to be_nil
         expect(r.declared_type).to eq :d
       end
     end
@@ -416,7 +431,7 @@ describe Chef::Resource do
       expect(json).to match(/instance_vars/)
     end
 
-    include_examples "to_json equalivent to Chef::JSONCompat.to_json" do
+    include_examples "to_json equivalent to Chef::JSONCompat.to_json" do
       let(:jsonable) { @resource }
     end
   end
@@ -795,21 +810,21 @@ describe Chef::Resource do
     end
 
     it 'adds mappings for a single platform' do
-      expect(Chef).to receive(:set_resource_priority_array).with(
+      expect(Chef.resource_handler_map).to receive(:set).with(
         :dinobot, Chef::Resource::Klz, { platform: ['autobots'] }
       )
       klz.provides :dinobot, platform: ['autobots']
     end
 
     it 'adds mappings for multiple platforms' do
-      expect(Chef).to receive(:set_resource_priority_array).with(
+      expect(Chef.resource_handler_map).to receive(:set).with(
         :energy, Chef::Resource::Klz, { platform: ['autobots', 'decepticons']}
       )
       klz.provides :energy, platform: ['autobots', 'decepticons']
     end
 
     it 'adds mappings for all platforms' do
-      expect(Chef).to receive(:set_resource_priority_array).with(
+      expect(Chef.resource_handler_map).to receive(:set).with(
         :tape_deck, Chef::Resource::Klz, {}
       )
       klz.provides :tape_deck
@@ -961,5 +976,91 @@ describe Chef::Resource do
           }
     end
 
+  end
+
+  describe "#action" do
+    let(:resource_class) do
+      Class.new(described_class) do
+        allowed_actions(%i{one two})
+      end
+    end
+    let(:resource) { resource_class.new('test', nil) }
+    subject { resource.action }
+
+    context "with a no action" do
+      it { is_expected.to eq [:nothing] }
+    end
+
+    context "with a default action" do
+      let(:resource_class) do
+        Class.new(described_class) do
+          default_action(:one)
+        end
+      end
+      it { is_expected.to eq [:one] }
+    end
+
+    context "with a symbol action" do
+      before { resource.action(:one) }
+      it { is_expected.to eq [:one] }
+    end
+
+    context "with a string action" do
+      before { resource.action('two') }
+      it { is_expected.to eq [:two] }
+    end
+
+    context "with an array action" do
+      before { resource.action([:two, :one]) }
+      it { is_expected.to eq [:two, :one] }
+    end
+
+    context "with an assignment" do
+      before { resource.action = :one }
+      it { is_expected.to eq [:one] }
+    end
+
+    context "with an array assignment" do
+      before { resource.action = [:two, :one] }
+      it { is_expected.to eq [:two, :one] }
+    end
+
+    context "with an invalid action" do
+      it { expect { resource.action(:three) }.to raise_error Chef::Exceptions::ValidationFailed }
+    end
+
+    context "with an invalid assignment action" do
+      it { expect { resource.action = :three }.to raise_error Chef::Exceptions::ValidationFailed }
+    end
+  end
+
+  describe ".default_action" do
+    let(:default_action) { }
+    let(:resource_class) do
+      actions = default_action
+      Class.new(described_class) do
+        default_action(actions) if actions
+      end
+    end
+    subject { resource_class.default_action }
+
+    context "with no default actions" do
+      it { is_expected.to eq [:nothing] }
+    end
+
+    context "with a symbol default action" do
+      let(:default_action) { :one }
+      it { is_expected.to eq [:one] }
+    end
+
+    context "with a string default action" do
+      let(:default_action) { 'one' }
+      it { is_expected.to eq [:one] }
+    end
+
+    context "with an array default action" do
+      let(:default_action) { [:two, :one] }
+      it { is_expected.to eq [:two, :one] }
+    end
   end
 end

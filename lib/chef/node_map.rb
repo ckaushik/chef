@@ -20,13 +20,6 @@ class Chef
   class NodeMap
 
     #
-    # Create a new NodeMap
-    #
-    def initialize
-      @map = {}
-    end
-
-    #
     # Set a key/value pair on the map with a filter.  The filter must be true
     # when applied to the node in order to retrieve the value.
     #
@@ -38,30 +31,34 @@ class Chef
     #
     # @return [NodeMap] Returns self for possible chaining
     #
-    def set(key, value, platform: nil, platform_version: nil, platform_family: nil, os: nil, on_platform: nil, on_platforms: nil, canonical: nil, &block)
+    def set(key, value, platform: nil, platform_version: nil, platform_family: nil, os: nil, on_platform: nil, on_platforms: nil, canonical: nil, override: nil, &block)
       Chef::Log.deprecation "The on_platform option to node_map has been deprecated" if on_platform
       Chef::Log.deprecation "The on_platforms option to node_map has been deprecated" if on_platforms
       platform ||= on_platform || on_platforms
-      filters = { platform: platform, platform_version: platform_version, platform_family: platform_family, os: os }
-      new_matcher = { filters: filters, block: block, value: value, canonical: canonical }
-      @map[key] ||= []
-      # Decide where to insert the matcher; the new value is preferred over
-      # anything more specific (see `priority_of`) and is preferred over older
-      # values of the same specificity.  (So all other things being equal,
-      # newest wins.)
+      filters = {}
+      filters[:platform] = platform if platform
+      filters[:platform_version] = platform_version if platform_version
+      filters[:platform_family] = platform_family if platform_family
+      filters[:os] = os if os
+      new_matcher = { value: value, filters: filters }
+      new_matcher[:block] = block if block
+      new_matcher[:canonical] = canonical if canonical
+      new_matcher[:override] = override if override
+
+      # The map is sorted in order of preference already; we just need to find
+      # our place in it (just before the first value with the same preference level).
       insert_at = nil
-      @map[key].each_with_index do |matcher, index|
-        if specificity(new_matcher) >= specificity(matcher)
-          insert_at = index
-          break
-        end
+      map[key] ||= []
+      map[key].each_with_index do |matcher,index|
+        cmp = compare_matchers(key, new_matcher, matcher)
+        insert_at ||= index if cmp && cmp <= 0
       end
       if insert_at
-        @map[key].insert(insert_at, new_matcher)
+        map[key].insert(insert_at, new_matcher)
       else
-        @map[key] << new_matcher
+        map[key] << new_matcher
       end
-      self
+      map
     end
 
     #
@@ -95,8 +92,8 @@ class Chef
     #
     def list(node, key, canonical: nil)
       raise ArgumentError, "first argument must be a Chef::Node" unless node.is_a?(Chef::Node) || node.nil?
-      return [] unless @map.has_key?(key)
-      @map[key].select do |matcher|
+      return [] unless map.has_key?(key)
+      map[key].select do |matcher|
         node_matches?(node, matcher) && canonical_matches?(canonical, matcher)
       end.map { |matcher| matcher[:value] }
     end
@@ -105,41 +102,18 @@ class Chef
     # @return remaining
     # @api private
     def delete_canonical(key, value)
-      remaining = @map[key]
+      remaining = map[key]
       if remaining
         remaining.delete_if { |matcher| matcher[:canonical] && Array(matcher[:value]) == Array(value) }
         if remaining.empty?
-          @map.delete(key)
+          map.delete(key)
           remaining = nil
         end
       end
       remaining
     end
 
-    private
-
-    #
-    # Gives a value for "how specific" the matcher is.
-    # Things which specify more specific filters get a higher number
-    # (platform_version > platform > platform_family > os); things
-    # with a block have higher specificity than similar things without
-    # a block.
-    #
-    def specificity(matcher)
-      if matcher[:filters][:platform_version]
-        specificity = 8
-      elsif matcher[:filters][:platform]
-        specificity = 6
-      elsif matcher[:filters][:platform_family]
-        specificity = 4
-      elsif matcher[:filters][:os]
-        specificity = 2
-      else
-        specificity = 0
-      end
-      specificity += 1 if matcher[:block]
-      specificity
-    end
+    protected
 
     #
     # Succeeds if:
@@ -196,6 +170,53 @@ class Chef
     def canonical_matches?(canonical, matcher)
       return true if canonical.nil?
       !!canonical == !!matcher[:canonical]
+    end
+
+    def compare_matchers(key, new_matcher, matcher)
+      cmp = compare_matcher_properties(new_matcher, matcher) { |m| m[:block] }
+      return cmp if cmp != 0
+      cmp = compare_matcher_properties(new_matcher, matcher) { |m| m[:filters][:platform_version] }
+      return cmp if cmp != 0
+      cmp = compare_matcher_properties(new_matcher, matcher) { |m| m[:filters][:platform] }
+      return cmp if cmp != 0
+      cmp = compare_matcher_properties(new_matcher, matcher) { |m| m[:filters][:platform_family] }
+      return cmp if cmp != 0
+      cmp = compare_matcher_properties(new_matcher, matcher) { |m| m[:filters][:os] }
+      return cmp if cmp != 0
+      cmp = compare_matcher_properties(new_matcher, matcher) { |m| m[:override] }
+      return cmp if cmp != 0
+      # If all things are identical, return 0
+      0
+    end
+
+    def compare_matcher_properties(new_matcher, matcher)
+      a = yield(new_matcher)
+      b = yield(matcher)
+
+      # Check for blcacklists ('!windows'). Those always come *after* positive
+      # whitelists.
+      a_negated = Array(a).any? { |f| f.is_a?(String) && f.start_with?('!') }
+      b_negated = Array(b).any? { |f| f.is_a?(String) && f.start_with?('!') }
+      if a_negated != b_negated
+        return 1 if a_negated
+        return -1 if b_negated
+      end
+
+      # We treat false / true and nil / not-nil with the same comparison
+      a = nil if a == false
+      b = nil if b == false
+      cmp = a <=> b
+      # This is the case where one is non-nil, and one is nil. The one that is
+      # nil is "greater" (i.e. it should come last).
+      if cmp.nil?
+        return 1 if a.nil?
+        return -1 if b.nil?
+      end
+      cmp
+    end
+
+    def map
+      @map ||= {}
     end
   end
 end

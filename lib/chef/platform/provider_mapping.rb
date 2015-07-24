@@ -176,7 +176,7 @@ class Chef
                          platform_provider(platform, version, resource_type) ||
                          resource_matching_provider(platform, version, resource_type)
 
-        raise ArgumentError, "Cannot find a provider for #{resource_type} on #{platform} version #{version}" if provider_klass.nil?
+        raise Chef::Exceptions::ProviderNotFound, "Cannot find a provider for #{resource_type} on #{platform} version #{version}" if provider_klass.nil?
 
         provider_klass
       end
@@ -197,12 +197,13 @@ class Chef
 
         def resource_matching_provider(platform, version, resource_type)
           if resource_type.kind_of?(Chef::Resource)
-            class_name = resource_type.class.to_s.split('::').last
+            class_name = resource_type.class.name ? resource_type.class.name.split('::').last :
+              convert_to_class_name(resource_type.resource_name.to_s)
 
             begin
               result = Chef::Provider.const_get(class_name)
-              Chef::Log.warn("Class Chef::Provider::#{class_name} does not declare 'provides #{convert_to_snake_case(class_name).to_sym.inspect}'.")
-              Chef::Log.warn("This will no longer work in Chef 13: you must use 'provides' to provide DSL.")
+              Chef::Log.warn("Class Chef::Provider::#{class_name} does not declare 'resource_name #{convert_to_snake_case(class_name).to_sym.inspect}'.")
+              Chef::Log.warn("This will no longer work in Chef 13: you must use 'resource_name' to provide DSL.")
             rescue NameError
             end
           end

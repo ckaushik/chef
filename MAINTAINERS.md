@@ -29,12 +29,14 @@ another component.
 ### Maintainers
 
 * [Bryan McLellan](https://github.com/btm)
+* [Noah Kantrowitz](https://github.com/coderanger)
 * [Daniel DeLeo](https://github.com/danielsdeleo)
 * [AJ Christensen](https://github.com/fujin)
 * [Phil Dibowitz](https://github.com/jaymzh)
 * [Jay Mundrawala](https://github.com/jdmundrawala)
 * [Jon Cowie](https://github.com/jonlives)
 * [Lamont Granquist](https://github.com/lamont-granquist)
+* [Claire McQuin](https://github.com/mcquin)
 * [Steven Murawski](https://github.com/smurawski)
 * [Tyler Ball](https://github.com/tyler-ball)
 * [Ranjib Dey](https://github.com/ranjib)
@@ -79,10 +81,13 @@ The specific components of Chef related to a given platform - including (but not
 
 ## Ubuntu
 
+### Lieutenant
+
+* [Ranjib Dey](https://github.com/ranjib)
+
 ### Maintainers
 
 * [Lamont Granquist](https://github.com/lamont-granquist)
-* [Ranjib Dey](https://github.com/ranjib)
 * [Thom May](https://github.com/thommay)
 
 ## Windows
@@ -99,13 +104,17 @@ The specific components of Chef related to a given platform - including (but not
 
 ## Solaris
 
+### Lieutenant
+
+* [Thom May](https://github.com/thommay)
+
 ### Maintainers
 
 * [Lamont Granquist](https://github.com/lamont-granquist)
 
 ## AIX
 
-### Maintainers
+### Lieutenant
 
 * [Lamont Granquist](https://github.com/lamont-granquist)
 
@@ -119,6 +128,34 @@ The specific components of Chef related to a given platform - including (but not
 
 * [Tyler Ball](https://github.com/tyler-ball)
 
+## Debian
+
+### Lieutenant
+
+* [Thom May](https://github.com/thommay)
+
+### Maintainers
+
+* [Lamont Granquist](https://github.com/lamont-granquist)
+
+## Fedora
+
+### Maintainers
+
+* [Lamont Granquist](https://github.com/lamont-granquist)
+
+## openSUSE
+
+### Maintainers
+
+* [Lamont Granquist](https://github.com/lamont-granquist)
+
+## SUSE Enterprise Linux Server
+
+### Maintainers
+
+* [Lamont Granquist](https://github.com/lamont-granquist)
+
 ## FreeBSD
 
 ### Lieutenant
@@ -129,4 +166,29 @@ The specific components of Chef related to a given platform - including (but not
 
 * [Cory Stephenson](https://github.com/Aevin1387)
 * [David Aronsohn](https://github.com/tbunnyman)
+
+## OpenBSD
+
+### Lieutenant
+
+* [Joe Miller](https://github.com/joemiller)
+
+## Gentoo
+
+### Maintainers
+
+* [Lamont Granquist](https://github.com/lamont-granquist)
+
+## OmniOS
+
+### Maintainers
+
+* [Thom May](https://github.com/thommay)
+
+## ArchLinux
+
+### Maintainers
+
+* [Lamont Granquist](https://github.com/lamont-granquist)
+* [Ryan Cragun](https://github.com/ryancragun)
 
